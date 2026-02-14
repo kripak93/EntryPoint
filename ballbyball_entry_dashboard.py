@@ -16,6 +16,9 @@ from react_cricket_agent import CricketDataAnalyzer, ReActCricketAgent
 # Load environment variables
 load_dotenv()
 
+# Debug: Check if API key is loaded
+_api_key_loaded = bool(os.getenv('GEMINI_API_KEY'))
+
 # Page config
 st.set_page_config(
     page_title="Cricket Entry Analysis Dashboard",
@@ -42,13 +45,19 @@ st.markdown("""
 @st.cache_resource
 def initialize_ai():
     """Initialize Gemini AI"""
+    # Force reload environment variables
+    load_dotenv(override=True)
     api_key = os.getenv('GEMINI_API_KEY')
+    
     if not api_key:
         return None
+    
     try:
         genai.configure(api_key=api_key)
         # Use stable gemini-2.5-flash model
         model = genai.GenerativeModel('gemini-2.5-flash')
+        # Test the model to ensure it works
+        _ = model.generate_content("test")
         return model
     except Exception as e:
         st.error(f"AI initialization error: {e}")
@@ -452,16 +461,16 @@ elif analysis_type == "Ball Position Analysis":
                 
                 # AI Insights for filtered data
                 st.markdown("---")
-                st.subheader("🤖 AI Insights on Filtered Data")
+                st.subheader("🤖 AI Expert Analysis")
                 
                 ai_model = initialize_ai()
                 
                 if ai_model is not None:
-                    if st.button("🔍 Generate AI Insights", key="ball_position_ai"):
-                        with st.spinner("Analyzing ball position data..."):
+                    if st.button("🔍 Generate Expert Insights", key="ball_position_ai"):
+                        with st.spinner("Analyzing patterns and trends..."):
                             try:
-                                # Prepare context for AI
-                                top_performers = filtered_bp.head(10)
+                                # Prepare comprehensive context for AI
+                                top_performers = filtered_bp.head(15)
                                 
                                 # Calculate overall stats
                                 total_balls = filtered_bp['Balls'].sum()
@@ -470,34 +479,81 @@ elif analysis_type == "Ball Position Analysis":
                                 avg_boundary_pct = filtered_bp['Boundary_Pct'].mean()
                                 avg_dot_pct = filtered_bp['Dot_Pct'].mean()
                                 
-                                # Build context
-                                context = f"""
-Analyze this ball position performance data for IPL players:
+                                # Analyze by ball position
+                                ball_pos_analysis = filtered_bp.groupby('Ball_Position').agg({
+                                    'Strike_Rate': 'mean',
+                                    'Boundary_Pct': 'mean',
+                                    'Balls': 'sum'
+                                }).round(1)
+                                
+                                # Analyze by entry phase
+                                entry_phase_analysis = filtered_bp.groupby('Entry_Phase').agg({
+                                    'Strike_Rate': 'mean',
+                                    'Boundary_Pct': 'mean',
+                                    'Balls': 'sum'
+                                }).round(1)
+                                
+                                # Find specialists
+                                early_ball_specialists = filtered_bp[filtered_bp['Ball_Position'] == 'Early (1-2)'].nlargest(5, 'Strike_Rate')
+                                late_ball_specialists = filtered_bp[filtered_bp['Ball_Position'] == 'Late (5-6)'].nlargest(5, 'Strike_Rate')
+                                
+                                # Build expert context
+                                context = f"""You are an expert cricket analyst specializing in ball-by-ball performance patterns. Analyze this IPL data with deep tactical insight.
 
-FILTERS APPLIED:
+ANALYSIS SCOPE:
 - Ball Positions: {', '.join(selected_ball_pos)}
 - RRR Ranges: {', '.join(selected_rrr)}
 - Entry Phases: {', '.join(selected_entry_phase)}
-- Years: {', '.join(map(str, selected_years))}
-- Teams: {', '.join(selected_teams[:5])}{'...' if len(selected_teams) > 5 else ''}
+- Dataset: {total_balls:,} balls from {len(filtered_bp)} player-situation combinations
 
-OVERALL STATISTICS:
-- Total Balls Analyzed: {total_balls:,}
-- Average Strike Rate: {avg_sr:.1f}
-- Average Boundary %: {avg_boundary_pct:.1f}%
-- Average Dot Ball %: {avg_dot_pct:.1f}%
+AGGREGATE PERFORMANCE METRICS:
+- Overall Strike Rate: {avg_sr:.1f}
+- Overall Boundary %: {avg_boundary_pct:.1f}%
+- Overall Dot Ball %: {avg_dot_pct:.1f}%
 
-TOP 10 PERFORMERS:
+PERFORMANCE BY BALL POSITION:
+{ball_pos_analysis.to_string()}
+
+PERFORMANCE BY ENTRY PHASE:
+{entry_phase_analysis.to_string()}
+
+TOP PERFORMERS (Overall):
 {top_performers[['Player', 'Entry_Phase', 'Ball_Position', 'RRR_Range', 'Balls', 'Strike_Rate', 'Boundary_Pct', 'Dot_Pct']].to_string(index=False)}
 
-Please provide:
-1. Key insights about player performance in these specific situations
-2. Which players excel in these ball positions and RRR ranges
-3. Patterns related to entry phase (when players entered the innings)
-4. Strategic recommendations for team selection based on this data
-5. Any notable trends or outliers
+EARLY BALL SPECIALISTS (Balls 1-2):
+{early_ball_specialists[['Player', 'Entry_Phase', 'RRR_Range', 'Strike_Rate', 'Boundary_Pct']].to_string(index=False) if not early_ball_specialists.empty else 'No data'}
 
-Keep the analysis concise and actionable for team management.
+LATE BALL SPECIALISTS (Balls 5-6):
+{late_ball_specialists[['Player', 'Entry_Phase', 'RRR_Range', 'Strike_Rate', 'Boundary_Pct']].to_string(index=False) if not late_ball_specialists.empty else 'No data'}
+
+EXPERT ANALYSIS REQUIRED:
+
+1. BALL POSITION TRENDS:
+   - Which players consistently exploit early balls (1-2) in the over? What makes them effective?
+   - Who are the late-over specialists (balls 5-6)? How do they differ from early ball players?
+   - Are there players who perform across all ball positions? What's their secret?
+
+2. ENTRY PHASE IMPACT:
+   - How does entry timing (Powerplay/Middle/Death) influence ball position performance?
+   - Do Powerplay entrants show different ball position preferences than Death over entrants?
+   - Which entry phase produces the most versatile players?
+
+3. PRESSURE SITUATIONS:
+   - At high RRR (12+ RPO), which ball positions are most productive?
+   - Do certain players thrive on specific balls when pressure is high?
+   - What's the risk-reward profile for different ball positions under pressure?
+
+4. TACTICAL PATTERNS:
+   - Identify 3-4 distinct player archetypes based on ball position preferences
+   - Which combinations of entry phase + ball position are most/least effective?
+   - Are there counter-intuitive findings that challenge conventional wisdom?
+
+5. TEAM SELECTION STRATEGY:
+   - Recommend specific players for specific match situations
+   - Suggest batting order positions based on ball position strengths
+   - Identify gaps in the current player pool
+
+Provide actionable insights that a team management can use immediately. Focus on WHY patterns exist, not just WHAT they are.
 """
                                 
                                 response = ai_model.generate_content(context)
@@ -582,59 +638,106 @@ Keep the analysis concise and actionable for team management.
                         
                         # AI Insights for individual player
                         st.markdown("---")
-                        st.markdown("#### 🤖 AI Player Analysis")
+                        st.markdown("#### 🤖 Expert Player Profile")
                         
                         if ai_model is not None:
-                            if st.button(f"🔍 Generate Insights for {selected_player}", key=f"player_ai_{selected_player}"):
-                                with st.spinner(f"Analyzing {selected_player}'s performance..."):
+                            if st.button(f"🔍 Generate Expert Analysis for {selected_player}", key=f"player_ai_{selected_player}"):
+                                with st.spinner(f"Building tactical profile for {selected_player}..."):
                                     try:
-                                        # Prepare player context
+                                        # Prepare comprehensive player context
                                         total_balls = player_data['Balls'].sum()
                                         total_runs = player_data['Runs'].sum()
                                         overall_sr = (total_runs / total_balls * 100) if total_balls > 0 else 0
                                         overall_boundary_pct = (player_data['Boundaries'].sum() / total_balls * 100) if total_balls > 0 else 0
                                         
-                                        # Best and worst situations
-                                        best_situation = player_data.nlargest(1, 'Strike_Rate').iloc[0] if not player_data.empty else None
-                                        worst_situation = player_data.nsmallest(1, 'Strike_Rate').iloc[0] if not player_data.empty else None
+                                        # Analyze by ball position
+                                        ball_pos_profile = player_data.groupby('Ball_Position').agg({
+                                            'Balls': 'sum',
+                                            'Strike_Rate': 'mean',
+                                            'Boundary_Pct': 'mean'
+                                        }).round(1)
                                         
-                                        context = f"""
-Analyze {selected_player}'s ball position performance in IPL:
+                                        # Analyze by RRR range
+                                        rrr_profile = player_data.groupby('RRR_Range').agg({
+                                            'Balls': 'sum',
+                                            'Strike_Rate': 'mean',
+                                            'Boundary_Pct': 'mean'
+                                        }).round(1)
+                                        
+                                        # Best and worst situations
+                                        best_situations = player_data.nlargest(3, 'Strike_Rate')
+                                        worst_situations = player_data.nsmallest(3, 'Strike_Rate')
+                                        
+                                        # High pressure performance (RRR 12+)
+                                        high_pressure = player_data[player_data['RRR_Range'].isin(['12-15 RPO', '15+ RPO'])]
+                                        
+                                        context = f"""You are an expert cricket analyst creating a detailed tactical profile for {selected_player}. Analyze their ball position performance with deep insight.
 
-OVERALL PERFORMANCE:
-- Total Balls Faced: {total_balls}
+PLAYER: {selected_player}
+
+OVERALL STATISTICS:
+- Total Balls Analyzed: {total_balls}
 - Overall Strike Rate: {overall_sr:.1f}
 - Overall Boundary %: {overall_boundary_pct:.1f}%
-- Entry Phases Played: {', '.join(player_data['Entry_Phase'].unique())}
+- Entry Phases: {', '.join(player_data['Entry_Phase'].unique())}
 
-ENTRY PHASE BREAKDOWN:
+ENTRY PHASE PERFORMANCE:
 {entry_summary.to_string(index=False)}
 
-BEST SITUATION:
-- Entry Phase: {best_situation['Entry_Phase'] if best_situation is not None else 'N/A'}
-- Ball Position: {best_situation['Ball_Position'] if best_situation is not None else 'N/A'}
-- RRR Range: {best_situation['RRR_Range'] if best_situation is not None else 'N/A'}
-- Strike Rate: {best_situation['Strike_Rate'] if best_situation is not None else 'N/A'}
-- Boundary %: {best_situation['Boundary_Pct'] if best_situation is not None else 'N/A'}%
+BALL POSITION PROFILE:
+{ball_pos_profile.to_string()}
 
-WORST SITUATION:
-- Entry Phase: {worst_situation['Entry_Phase'] if worst_situation is not None else 'N/A'}
-- Ball Position: {worst_situation['Ball_Position'] if worst_situation is not None else 'N/A'}
-- RRR Range: {worst_situation['RRR_Range'] if worst_situation is not None else 'N/A'}
-- Strike Rate: {worst_situation['Strike_Rate'] if worst_situation is not None else 'N/A'}
-- Boundary %: {worst_situation['Boundary_Pct'] if worst_situation is not None else 'N/A'}%
+RRR RANGE PROFILE:
+{rrr_profile.to_string()}
 
-DETAILED BREAKDOWN (Top 10 situations):
-{player_data.nlargest(10, 'Strike_Rate')[['Entry_Phase', 'Ball_Position', 'RRR_Range', 'Balls', 'Strike_Rate', 'Boundary_Pct', 'Dot_Pct']].to_string(index=False)}
+TOP 3 BEST SITUATIONS:
+{best_situations[['Entry_Phase', 'Ball_Position', 'RRR_Range', 'Balls', 'Strike_Rate', 'Boundary_Pct', 'Dot_Pct']].to_string(index=False)}
 
-Please provide:
-1. Player's strengths: Which situations does {selected_player} excel in?
-2. Player's weaknesses: Which situations should be avoided?
-3. Entry phase impact: How does entry timing affect performance?
-4. Ball position tendencies: Which balls in the over does the player handle best?
-5. Strategic recommendations: When and how to use {selected_player} in matches?
+TOP 3 WORST SITUATIONS:
+{worst_situations[['Entry_Phase', 'Ball_Position', 'RRR_Range', 'Balls', 'Strike_Rate', 'Boundary_Pct', 'Dot_Pct']].to_string(index=False)}
 
-Keep the analysis tactical and actionable for team management.
+HIGH PRESSURE PERFORMANCE (RRR 12+ RPO):
+- Balls Faced: {high_pressure['Balls'].sum() if not high_pressure.empty else 0}
+- Strike Rate: {(high_pressure['Runs'].sum() / high_pressure['Balls'].sum() * 100) if not high_pressure.empty and high_pressure['Balls'].sum() > 0 else 'N/A'}
+- Boundary %: {(high_pressure['Boundaries'].sum() / high_pressure['Balls'].sum() * 100) if not high_pressure.empty and high_pressure['Balls'].sum() > 0 else 'N/A'}
+
+DETAILED BREAKDOWN (All Situations):
+{player_data.nlargest(10, 'Balls')[['Entry_Phase', 'Ball_Position', 'RRR_Range', 'Balls', 'Strike_Rate', 'Boundary_Pct', 'Dot_Pct']].to_string(index=False)}
+
+EXPERT ANALYSIS REQUIRED:
+
+1. BALL POSITION MASTERY:
+   - Which balls in the over does {selected_player} dominate? (Early 1-2, Middle 3-4, Late 5-6)
+   - Is there a clear pattern or is the player versatile across all positions?
+   - What technical or tactical reasons explain their ball position preferences?
+
+2. ENTRY TIMING IMPACT:
+   - How does entry phase (Powerplay/Middle/Death) affect their performance?
+   - Does {selected_player} adapt their approach based on when they enter?
+   - Which entry phase brings out their best performance and why?
+
+3. PRESSURE HANDLING:
+   - How does {selected_player} perform under high RRR pressure (12+ RPO)?
+   - Do they maintain consistency or show volatility in pressure situations?
+   - Which ball positions do they prefer when chasing high run rates?
+
+4. TACTICAL ARCHETYPE:
+   - Classify {selected_player} into a tactical archetype (e.g., "Early Ball Aggressor", "Late Over Finisher", "Pressure Specialist", "Versatile Accumulator")
+   - What makes them unique compared to other players?
+   - Are there any counter-intuitive findings about their game?
+
+5. STRATEGIC RECOMMENDATIONS:
+   - Optimal batting position for {selected_player} based on this data
+   - Best match situations to deploy them (entry phase + RRR context)
+   - Specific balls in the over where they should be on strike
+   - Situations to avoid or where they need support
+   - Training focus areas to improve weaknesses
+
+6. COMPARATIVE INSIGHTS:
+   - How does {selected_player} compare to typical IPL batsmen in these situations?
+   - What's their unique value proposition for team selection?
+
+Provide tactical insights that coaches and team management can act on immediately. Focus on actionable recommendations backed by data patterns.
 """
                                         
                                         response = ai_model.generate_content(context)
