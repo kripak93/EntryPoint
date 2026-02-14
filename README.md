@@ -1,13 +1,15 @@
-# 🏏 Gemini IPL Analytics
+# 🏏 IPL Entry Point Analysis Dashboard
 
-AI-powered cricket analytics using Google's Gemini API for intelligent IPL data analysis.
+AI-powered cricket analytics dashboard analyzing player performance by entry point, ball position, and match situation using Google's Gemini API.
 
 ## Features
 
-- **Smart Query**: Ask natural language questions about IPL data
-- **Player Analysis**: Deep insights into individual player performance
-- **Team Analysis**: Comprehensive team statistics and comparisons
-- **Data Explorer**: Interactive data browsing and filtering
+- **Entry Point Analysis**: Track player performance based on when they entered the innings
+- **Ball Position Analytics**: Analyze performance by ball number in over (1-6) at different RRR ranges
+- **Entry Phase Tracking**: Powerplay (0-6), Middle (7-15), Death (16-20) overs analysis
+- **AI-Powered Insights**: Get intelligent recommendations based on filtered data
+- **Interactive Heatmaps**: Visualize performance across multiple dimensions
+- **Individual Player Analysis**: Deep dive into any player's strengths and weaknesses
 
 ## Quick Setup
 
@@ -16,7 +18,7 @@ AI-powered cricket analytics using Google's Gemini API for intelligent IPL data 
 pip install -r requirements.txt
 ```
 
-### 2. Get Gemini API Key
+### 2. Get Gemini API Key (Optional - for AI Insights)
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Click "Create API Key"
 3. Copy your API key
@@ -30,82 +32,135 @@ copy .env.template .env
 GEMINI_API_KEY=your_actual_api_key_here
 ```
 
-### 4. Add Your Data
-Place your IPL dataset as `ipl_data.csv` in the project root.
+### 4. Prepare Your Data
+Place your ball-by-ball IPL dataset as `ipl_data_mens_only.csv` in the project root.
 
-Expected columns (based on schema):
-- Player, Team, O, M, R, W, Econ (bowling stats)
-- Batsman, Team.1, R.1, B, RR (batting stats)
-- Date↑, Ground Name, Match↑ (match info)
+Required columns:
+- Batsman, Opposition, Match⬆, Date⬆
+- Overs, R.1 (cumulative runs), B (balls faced)
+- RRreq, RReq, BRem (chase situation data)
+- Bat (innings identifier)
 
-### 5. Run the App
+### 5. Generate Processed Data
 ```bash
-streamlit run enhanced_gemini_streamlit_app.py
+# Generate entry point data
+python process_ballbyball_data.py
+
+# Generate ball position data
+python process_ball_position_data.py
 ```
 
-## Usage Options
+This creates:
+- `processed_entry_points_ballbyball.csv` - Entry point analysis data
+- `ball_position_analysis.csv` - Ball-by-ball position data
+- `bowling_type_matchups.csv` - Pace vs Spin statistics
 
-### 🌐 Web Interface (Recommended)
+### 6. Run the Dashboard
 ```bash
-python run_app.py
+streamlit run ballbyball_entry_dashboard.py
 ```
-- Interactive Streamlit app
-- Season selection (2024/2025/All)
-- Smart queries, player analysis, team reports
 
-### 🛠️ Command Line Toolkit
-```bash
-python ipl_analytics_toolkit.py
-```
-- Menu-driven analysis
-- Quick stats and validation
-- Ball position analysis
-- Season comparisons
+## Dashboard Sections
 
-### 💬 Smart Queries Examples
-- "Who has the best economy rate in 2025?"
-- "Compare Bumrah vs Starc bowling performance"
-- "Which team has the strongest bowling attack?"
-- "Analyze ball position performance for any player"
+### 📊 Player Entry Analysis
+- Entry point statistics (when players entered)
+- Performance metrics: Strike Rate, Boundary %, Dot %
+- RRR impact analysis (% of runs remaining contributed)
+- Over-by-over progression charts
+- Bowling type matchups (Pace vs Spin)
+
+### 🎯 Ball Position Analysis
+- Performance by ball number in over (1-6)
+- RRR range filtering (0-6, 6-9, 9-12, 12-15, 15+ RPO)
+- Entry phase filtering (Powerplay/Middle/Death)
+- Comprehensive heatmaps
+- Individual player deep dives
+
+### 🤖 AI Insights
+- Natural language Q&A about player performance
+- Automated insights on filtered data
+- Strategic recommendations for team selection
+- Player strengths and weaknesses analysis
+
+## Usage Examples
+
+### Analyze Late Over Performance
+1. Go to "Ball Position Analysis"
+2. Select "Late (5-6)" ball position
+3. Select "12-15 RPO" and "15+ RPO" RRR ranges
+4. Click "Generate AI Insights" for recommendations
+
+### Individual Player Analysis
+1. Select a player from the dropdown
+2. View performance heatmaps by situation
+3. Check entry phase impact
+4. Click "Generate Insights" for tactical analysis
+
+### Entry Point Tracking
+1. Go to "Player Entry Analysis"
+2. Filter by team, year, bowling type
+3. View entry over vs performance metrics
+4. Analyze over-by-over progression for specific matches
 
 ## File Structure
 ```
 ├── 🏏 MAIN FILES
-│   ├── enhanced_gemini_ipl_backend.py     # Core analytics engine
-│   ├── enhanced_gemini_streamlit_app.py   # Web interface  
-│   ├── ipl_analytics_toolkit.py           # Consolidated analysis toolkit
-│   ├── run_app.py                         # Easy launcher
-│   ├── setup.py                           # Setup script
-│   ├── ipl_data.csv                       # Your IPL dataset
+│   ├── ballbyball_entry_dashboard.py      # Main dashboard
+│   ├── react_cricket_agent.py             # AI agent for Q&A
+│   ├── process_ballbyball_data.py         # Entry point processor
+│   ├── process_ball_position_data.py      # Ball position processor
+│   ├── ipl_data_mens_only.csv             # Source data
 │   ├── .env                               # API key configuration
 │   └── requirements.txt                   # Dependencies
-├── 📁 scripts/                            # Individual analysis scripts (archived)
-├── 📁 data/                               # Backup and seasonal data files
-└── 📁 docs/                               # Documentation and schemas
+├── 📊 GENERATED DATA
+│   ├── processed_entry_points_ballbyball.csv
+│   ├── ball_position_analysis.csv
+│   └── bowling_type_matchups.csv
+├── 📁 .streamlit/                         # Streamlit configuration
+└── 📄 ARCHITECTURE_OVERVIEW.md            # System architecture
 ```
+
+## Key Metrics Explained
+
+### Entry Point Metrics
+- **Entry Over**: The over when the player first faced a ball
+- **Entry RRR**: Required run rate when player entered
+- **% of Runs Remaining**: (Player Runs / Runs Required at Entry) × 100
+- **Contribution per Over**: Player Runs / Overs Played
+
+### Ball Position Metrics
+- **Ball Position**: Early (1-2), Middle (3-4), Late (5-6) in over
+- **RRR Range**: Required run rate categorized in ranges
+- **Entry Phase**: When player entered - Powerplay/Middle/Death
+- **Strike Rate**: (Runs / Balls) × 100
+- **Boundary %**: (Boundaries / Balls) × 100
+- **Dot %**: (Dot Balls / Balls) × 100
 
 ## Troubleshooting
 
-### API Key Issues
-- Ensure your API key is valid and active
-- Check the .env file format (no quotes around the key)
-- Verify you have Gemini API access
+### Data Not Loading
+- Ensure you've run both processing scripts first
+- Check that CSV files exist in the project root
+- Verify source data has required columns
 
-### Data Issues
-- Ensure your CSV has the expected column names
-- Check for proper encoding (UTF-8 recommended)
-- Verify data completeness
+### AI Insights Not Working
+- Check GEMINI_API_KEY is set in .env
+- Verify API key is valid and active
+- Dashboard works without AI - only insights require API
 
-### Dependencies
-Run the setup script to check everything:
-```bash
-python setup.py
-```
+### Performance Issues
+- Filter data by year/team to reduce dataset size
+- Increase minimum balls filter (default: 5)
+- Close other browser tabs running Streamlit
+
+## Architecture
+
+See [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) for detailed system architecture, data flow, and API usage information.
 
 ## Support
 
-For issues or questions, check:
-1. Your API key is correctly set
-2. Data file exists and has proper format
-3. All dependencies are installed
-4. Python 3.8+ is being used
+For issues or questions:
+1. Verify data files are generated
+2. Check API key configuration (if using AI)
+3. Ensure all dependencies are installed
+4. Python 3.8+ required
