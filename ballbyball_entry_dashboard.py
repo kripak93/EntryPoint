@@ -45,9 +45,17 @@ st.markdown("""
 @st.cache_resource
 def initialize_ai():
     """Initialize Gemini AI"""
-    # Force reload environment variables
-    load_dotenv(override=True)
-    api_key = os.getenv('GEMINI_API_KEY')
+    # Try Streamlit secrets first (for cloud deployment)
+    api_key = None
+    try:
+        api_key = st.secrets.get("GEMINI_API_KEY")
+    except:
+        pass
+    
+    # Fall back to environment variable (for local development)
+    if not api_key:
+        load_dotenv(override=True)
+        api_key = os.getenv('GEMINI_API_KEY')
     
     if not api_key:
         return None
@@ -119,7 +127,7 @@ with col4:
     st.metric("Years", f"{entry_df['Year'].min()}-{entry_df['Year'].max()}")
 
 # Sidebar filters
-st.sidebar.header("🎯 Filters")
+st.sidebar.header("🎯 Comprehensive Filters")
 
 # Year filter
 available_years = sorted(entry_df['Year'].dropna().unique())
@@ -127,6 +135,14 @@ selected_years = st.sidebar.multiselect(
     "📅 Years:",
     available_years,
     default=available_years
+)
+
+# Multiple batters filter
+available_players = sorted(entry_df['Player'].unique())
+selected_players = st.sidebar.multiselect(
+    "👤 Players:",
+    available_players,
+    default=[]  # Empty by default for better performance
 )
 
 # Team filter
@@ -137,6 +153,65 @@ selected_teams = st.sidebar.multiselect(
     default=available_teams  # Show all teams by default
 )
 
+# Over slabs filter
+over_slabs = ["1-3", "4-6", "7-10", "11-14", "15-17", "18-20"]
+selected_over_slabs = st.sidebar.multiselect(
+    "🎯 Over Slabs:",
+    over_slabs,
+    default=over_slabs
+)
+
+# Venue filter (if ball position data is available)
+if not ball_position_df.empty and 'Ground_Name' in ball_position_df.columns:
+    available_venues = sorted(ball_position_df['Ground_Name'].dropna().unique())
+    selected_venues = st.sidebar.multiselect(
+        "🏟️ Venues:",
+        available_venues,
+        default=available_venues[:10]  # Default to top 10 venues
+    )
+else:
+    selected_venues = []
+
+# Bowling type filter
+bowling_types = ["All", "Pace", "Spin"]
+selected_bowling_type = st.sidebar.selectbox(
+    "🎾 Bowling Type:",
+    bowling_types
+)
+
+# Bowling specifications (detailed)
+if not ball_position_df.empty and 'Variation' in ball_position_df.columns:
+    st.sidebar.markdown("**🎾 Bowling Specifications:**")
+    
+    # Get available variations
+    available_variations = sorted(ball_position_df['Variation'].dropna().unique())
+    
+    # Categorize variations
+    pace_variations = [v for v in available_variations if any(pace_term in v.lower() for pace_term in ['swing', 'cutter', 'slower', 'bouncer', 'yorker', 'no movement'])]
+    spin_variations = [v for v in available_variations if any(spin_term in v.lower() for spin_term in ['spinner', 'break', 'orthodox', 'googly', 'doosra', 'carrom'])]
+    
+    selected_variations = st.sidebar.multiselect(
+        "Bowling Variations:",
+        available_variations,
+        default=[]
+    )
+else:
+    selected_variations = []
+
+# Date filter
+if not ball_position_df.empty and 'Date' in ball_position_df.columns:
+    date_range = st.sidebar.date_input(
+        "📅 Date Range:",
+        value=(
+            pd.to_datetime(ball_position_df['Date']).min().date(),
+            pd.to_datetime(ball_position_df['Date']).max().date()
+        ),
+        min_value=pd.to_datetime(ball_position_df['Date']).min().date(),
+        max_value=pd.to_datetime(ball_position_df['Date']).max().date()
+    )
+else:
+    date_range = None
+
 # Phase filter
 selected_phases = st.sidebar.multiselect(
     "⏱️ Entry Phase:",
@@ -144,29 +219,32 @@ selected_phases = st.sidebar.multiselect(
     default=["Powerplay", "Middle", "Death"]
 )
 
-# Bowling type filter (NEW!)
-if not bowling_df.empty:
-    bowling_filter = st.sidebar.selectbox(
-        "🎾 Bowling Type:",
-        ["All", "Pace", "Spin"]
-    )
-else:
-    bowling_filter = "All"
-    st.sidebar.info("Bowling type data not available")
-
 # Min balls filter
 min_balls = st.sidebar.slider(
     "⚾ Min Balls Faced:",
     1, 50, 5  # Default to 5 instead of 10
 )
 
-# Apply filters
+# Apply filters to entry data
+filter_conditions = [
+    entry_df['Year'].isin(selected_years),
+    entry_df['Team'].isin(selected_teams),
+    entry_df['Entry_Phase'].isin(selected_phases),
+    entry_df['BF'] >= min_balls
+]
+
+# Add player filter if selected
+if selected_players:
+    filter_conditions.append(entry_df['Player'].isin(selected_players))
+
+# Apply all filters
 filtered_df = entry_df[
-    (entry_df['Year'].isin(selected_years)) &
-    (entry_df['Team'].isin(selected_teams)) &
-    (entry_df['Entry_Phase'].isin(selected_phases)) &
-    (entry_df['BF'] >= min_balls)
-].copy()
+    filter_conditions[0] & filter_conditions[1] & filter_conditions[2] & filter_conditions[3]
+]
+
+# Apply player filter separately if needed
+if selected_players:
+    filtered_df = filtered_df[filtered_df['Player'].isin(selected_players)]
 
 st.sidebar.metric("Filtered Entries", len(filtered_df))
 
@@ -361,19 +439,67 @@ elif analysis_type == "Ball Position Analysis":
     st.info("💡 Analyze player performance by ball position in over (1-6) and Required Run Rate")
     
     if not ball_position_df.empty:
-        # Filter ball position data
-        bp_filtered = ball_position_df[
-            (ball_position_df['Year'].isin(selected_years)) &
-            (ball_position_df['Team'].isin(selected_teams))
-        ].copy()
+        # Apply comprehensive filters to ball position data
+        filter_conditions = [
+            ball_position_df['Year'].isin(selected_years),
+            ball_position_df['Team'].isin(selected_teams)
+        ]
+        
+        # Apply player filter if selected
+        if selected_players:
+            filter_conditions.append(ball_position_df['Batsman'].isin(selected_players))
+        
+        # Apply venue filter if selected
+        if selected_venues and 'Ground_Name' in ball_position_df.columns:
+            filter_conditions.append(ball_position_df['Ground_Name'].isin(selected_venues))
+        
+        # Apply over slab filter
+        if 'Over_Slab' in ball_position_df.columns:
+            filter_conditions.append(ball_position_df['Over_Slab'].isin(selected_over_slabs))
+        
+        # Apply bowling type filter
+        if selected_bowling_type != "All" and 'Bowling_Type' in ball_position_df.columns:
+            filter_conditions.append(ball_position_df['Bowling_Type'] == selected_bowling_type)
+        
+        # Apply bowling variation filter
+        if selected_variations and 'Variation' in ball_position_df.columns:
+            filter_conditions.append(ball_position_df['Variation'].isin(selected_variations))
+        
+        # Apply date filter
+        if date_range and 'Date' in ball_position_df.columns:
+            if len(date_range) == 2:
+                start_date, end_date = date_range
+                filter_conditions.append(
+                    (pd.to_datetime(ball_position_df['Date']).dt.date >= start_date) &
+                    (pd.to_datetime(ball_position_df['Date']).dt.date <= end_date)
+                )
+        
+        # Apply all filters
+        bp_filtered = ball_position_df.copy()
+        for condition in filter_conditions:
+            bp_filtered = bp_filtered[condition]
         
         # Filter to chase scenarios only
         chase_bp = bp_filtered[bp_filtered['RRR_Range'] != 'No RRR'].copy()
         
         if not chase_bp.empty:
-            st.markdown(f"**Analyzing {len(chase_bp):,} balls in chase scenarios**")
+            # Show filter summary
+            st.markdown(f"**📊 Filtered Data Summary:**")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Balls", f"{len(chase_bp):,}")
+            with col2:
+                st.metric("Unique Players", chase_bp['Batsman'].nunique())
+            with col3:
+                st.metric("Matches", chase_bp['Match'].nunique())
+            with col4:
+                if 'Ground_Name' in chase_bp.columns:
+                    st.metric("Venues", chase_bp['Ground_Name'].nunique())
+                else:
+                    st.metric("Years", f"{chase_bp['Year'].nunique()}")
             
             # Overall metrics
+            st.markdown("**🎯 Performance Metrics:**")
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 total_runs = chase_bp['Runs_This_Ball'].sum()
@@ -387,7 +513,11 @@ elif analysis_type == "Ball Position Analysis":
                 dot_pct = (chase_bp['Is_Dot'].sum() / len(chase_bp) * 100)
                 st.metric("Dot Ball %", f"{dot_pct:.1f}%")
             with col4:
-                st.metric("Total Balls", f"{len(chase_bp):,}")
+                if 'Bowling_Type' in chase_bp.columns:
+                    pace_pct = (len(chase_bp[chase_bp['Bowling_Type'] == 'Pace']) / len(chase_bp) * 100)
+                    st.metric("Pace %", f"{pace_pct:.1f}%")
+                else:
+                    st.metric("Avg Runs/Ball", f"{(total_runs / total_balls):.2f}")
             
             # Player aggregation
             st.subheader("👤 Player Performance by Ball Position, RRR & Entry Phase")
@@ -476,22 +606,30 @@ elif analysis_type == "Ball Position Analysis":
                                 total_balls = filtered_bp['Balls'].sum()
                                 total_runs = filtered_bp['Runs'].sum()
                                 avg_sr = (total_runs / total_balls * 100) if total_balls > 0 else 0
-                                avg_boundary_pct = filtered_bp['Boundary_Pct'].mean()
-                                avg_dot_pct = filtered_bp['Dot_Pct'].mean()
                                 
-                                # Analyze by ball position
+                                # Recalculate percentages from raw counts
+                                total_boundaries = filtered_bp['Boundaries'].sum()
+                                total_dots = filtered_bp['Dots'].sum()
+                                avg_boundary_pct = (total_boundaries / total_balls * 100) if total_balls > 0 else 0
+                                avg_dot_pct = (total_dots / total_balls * 100) if total_balls > 0 else 0
+                                
+                                # Analyze by ball position - recalculate percentages
                                 ball_pos_analysis = filtered_bp.groupby('Ball_Position').agg({
-                                    'Strike_Rate': 'mean',
-                                    'Boundary_Pct': 'mean',
-                                    'Balls': 'sum'
-                                }).round(1)
+                                    'Runs': 'sum',
+                                    'Balls': 'sum',
+                                    'Boundaries': 'sum'
+                                }).reset_index()
+                                ball_pos_analysis['Strike_Rate'] = (ball_pos_analysis['Runs'] / ball_pos_analysis['Balls'] * 100).round(1)
+                                ball_pos_analysis['Boundary_Pct'] = (ball_pos_analysis['Boundaries'] / ball_pos_analysis['Balls'] * 100).round(1)
                                 
-                                # Analyze by entry phase
+                                # Analyze by entry phase - recalculate percentages
                                 entry_phase_analysis = filtered_bp.groupby('Entry_Phase').agg({
-                                    'Strike_Rate': 'mean',
-                                    'Boundary_Pct': 'mean',
-                                    'Balls': 'sum'
-                                }).round(1)
+                                    'Runs': 'sum',
+                                    'Balls': 'sum',
+                                    'Boundaries': 'sum'
+                                }).reset_index()
+                                entry_phase_analysis['Strike_Rate'] = (entry_phase_analysis['Runs'] / entry_phase_analysis['Balls'] * 100).round(1)
+                                entry_phase_analysis['Boundary_Pct'] = (entry_phase_analysis['Boundaries'] / entry_phase_analysis['Balls'] * 100).round(1)
                                 
                                 # Find specialists
                                 early_ball_specialists = filtered_bp[filtered_bp['Ball_Position'] == 'Early (1-2)'].nlargest(5, 'Strike_Rate')
@@ -572,9 +710,13 @@ Provide actionable insights that a team management can use immediately. Focus on
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    # Strike Rate by Ball Position and RRR
-                    pivot_sr = player_bp.groupby(['Ball_Position', 'RRR_Range'])['Strike_Rate'].mean().reset_index()
-                    pivot_sr_wide = pivot_sr.pivot(index='Ball_Position', columns='RRR_Range', values='Strike_Rate')
+                    # Strike Rate by Ball Position and RRR - recalculate from raw data
+                    pivot_sr_data = player_bp.groupby(['Ball_Position', 'RRR_Range']).agg({
+                        'Runs': 'sum',
+                        'Balls': 'sum'
+                    }).reset_index()
+                    pivot_sr_data['Strike_Rate'] = (pivot_sr_data['Runs'] / pivot_sr_data['Balls'] * 100).round(1)
+                    pivot_sr_wide = pivot_sr_data.pivot(index='Ball_Position', columns='RRR_Range', values='Strike_Rate')
                     
                     fig = px.imshow(
                         pivot_sr_wide,
@@ -586,9 +728,13 @@ Provide actionable insights that a team management can use immediately. Focus on
                     st.plotly_chart(fig, use_container_width=True)
                 
                 with col2:
-                    # Boundary % by Ball Position and RRR
-                    pivot_bnd = player_bp.groupby(['Ball_Position', 'RRR_Range'])['Boundary_Pct'].mean().reset_index()
-                    pivot_bnd_wide = pivot_bnd.pivot(index='Ball_Position', columns='RRR_Range', values='Boundary_Pct')
+                    # Boundary % by Ball Position and RRR - recalculate from raw data
+                    pivot_bnd_data = player_bp.groupby(['Ball_Position', 'RRR_Range']).agg({
+                        'Boundaries': 'sum',
+                        'Balls': 'sum'
+                    }).reset_index()
+                    pivot_bnd_data['Boundary_Pct'] = (pivot_bnd_data['Boundaries'] / pivot_bnd_data['Balls'] * 100).round(1)
+                    pivot_bnd_wide = pivot_bnd_data.pivot(index='Ball_Position', columns='RRR_Range', values='Boundary_Pct')
                     
                     fig = px.imshow(
                         pivot_bnd_wide,
@@ -650,19 +796,23 @@ Provide actionable insights that a team management can use immediately. Focus on
                                         overall_sr = (total_runs / total_balls * 100) if total_balls > 0 else 0
                                         overall_boundary_pct = (player_data['Boundaries'].sum() / total_balls * 100) if total_balls > 0 else 0
                                         
-                                        # Analyze by ball position
+                                        # Analyze by ball position - recalculate percentages
                                         ball_pos_profile = player_data.groupby('Ball_Position').agg({
                                             'Balls': 'sum',
-                                            'Strike_Rate': 'mean',
-                                            'Boundary_Pct': 'mean'
-                                        }).round(1)
+                                            'Runs': 'sum',
+                                            'Boundaries': 'sum'
+                                        }).reset_index()
+                                        ball_pos_profile['Strike_Rate'] = (ball_pos_profile['Runs'] / ball_pos_profile['Balls'] * 100).round(1)
+                                        ball_pos_profile['Boundary_Pct'] = (ball_pos_profile['Boundaries'] / ball_pos_profile['Balls'] * 100).round(1)
                                         
-                                        # Analyze by RRR range
+                                        # Analyze by RRR range - recalculate percentages
                                         rrr_profile = player_data.groupby('RRR_Range').agg({
                                             'Balls': 'sum',
-                                            'Strike_Rate': 'mean',
-                                            'Boundary_Pct': 'mean'
-                                        }).round(1)
+                                            'Runs': 'sum',
+                                            'Boundaries': 'sum'
+                                        }).reset_index()
+                                        rrr_profile['Strike_Rate'] = (rrr_profile['Runs'] / rrr_profile['Balls'] * 100).round(1)
+                                        rrr_profile['Boundary_Pct'] = (rrr_profile['Boundaries'] / rrr_profile['Balls'] * 100).round(1)
                                         
                                         # Best and worst situations
                                         best_situations = player_data.nlargest(3, 'Strike_Rate')

@@ -108,11 +108,51 @@ def process_ball_position_analysis(csv_path='ipl_data_mens_only.csv'):
     print(f"Unique players: {df['Batsman'].nunique()}")
     print(f"Unique matches: {df['Match'].nunique()}")
     
-    # Save detailed ball-by-ball data
+    # Save detailed ball-by-ball data with additional filter columns
     ball_cols = ['Batsman', 'Team', 'Match', 'Year', 'Innings', 'Over_Num', 'Ball_Num',
                  'Ball_Position', 'Entry_Over', 'Entry_Phase', 'Runs_This_Ball', 'Is_Dot', 
                  'Is_Boundary', 'Is_Four', 'Is_Six', 'RRreq', 'RRR_Range', 'Runs_Required', 
-                 'Balls_Remaining']
+                 'Balls_Remaining', 'Ground_Name', 'Date', 'Variation', 'Line', 'Length']
+    
+    # Add ground name, date, and bowling details
+    df['Ground_Name'] = df['Ground Name'].fillna('Unknown')
+    df['Date'] = pd.to_datetime(df['Date⬆'], errors='coerce')
+    df['Variation'] = df['Variation'].fillna('no movement')
+    df['Line'] = df['Line'].fillna('unknown')
+    df['Length'] = df['Length'].fillna('unknown')
+    
+    # Create bowling type categories
+    def categorize_bowling_type(variation):
+        if pd.isna(variation) or variation == 'no movement':
+            return 'Pace'
+        elif any(spin_type in str(variation).lower() for spin_type in ['spinner', 'break', 'orthodox', 'googly', 'doosra']):
+            return 'Spin'
+        else:
+            return 'Pace'
+    
+    df['Bowling_Type'] = df['Variation'].apply(categorize_bowling_type)
+    
+    # Create over slabs
+    def categorize_over_slab(over_num):
+        if pd.isna(over_num):
+            return 'Unknown'
+        elif over_num < 3:
+            return '1-3'
+        elif over_num < 6:
+            return '4-6'
+        elif over_num < 10:
+            return '7-10'
+        elif over_num < 14:
+            return '11-14'
+        elif over_num < 17:
+            return '15-17'
+        else:
+            return '18-20'
+    
+    df['Over_Slab'] = df['Over_Num'].apply(categorize_over_slab)
+    
+    # Add bowling type and over slab to saved columns
+    ball_cols.extend(['Bowling_Type', 'Over_Slab'])
     
     ball_df = df[ball_cols].copy()
     ball_df.to_csv('ball_position_analysis.csv', index=False)
