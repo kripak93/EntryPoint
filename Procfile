@@ -1,0 +1,1 @@
+web: streamlit run corrected_entry_analysis_dashboard.py --server.port=$PORT --server.address=0.0.0.0

@@ -24,6 +24,8 @@ pip install -r requirements.txt
 3. Copy your API key
 
 ### 3. Configure Environment
+
+**For Local Development:**
 ```bash
 # Copy the template
 copy .env.template .env
@@ -31,6 +33,16 @@ copy .env.template .env
 # Edit .env and add your API key:
 GEMINI_API_KEY=your_actual_api_key_here
 ```
+
+**For Streamlit Cloud Deployment:**
+- Don't add the key to .env (it's gitignored anyway)
+- After deploying, go to your app settings on Streamlit Cloud
+- Click "Secrets" in the left sidebar
+- Add your key in TOML format:
+  ```toml
+  GEMINI_API_KEY = "your_actual_api_key_here"
+  ```
+- The app will automatically use Streamlit secrets in production
 
 ### 4. Prepare Your Data
 Place your ball-by-ball IPL dataset as `ipl_data_mens_only.csv` in the project root.

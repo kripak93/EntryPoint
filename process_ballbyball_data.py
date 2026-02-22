@@ -17,11 +17,9 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
     df['Team'] = df['Opposition'].fillna('Unknown')  # Opposition = batting team
     df['Match'] = df['Match⬆'].fillna('Unknown')
     df['Over_Num'] = df['Overs'].astype(str).str.split('.').str[0].astype(float)
-    df['Runs'] = pd.to_numeric(df['R.1'], errors='coerce').fillna(0)
-    df['Balls'] = pd.to_numeric(df['B'], errors='coerce').fillna(0)
-    df['Dots'] = pd.to_numeric(df['0'], errors='coerce').fillna(0)
-    df['Fours'] = pd.to_numeric(df['4'], errors='coerce').fillna(0)
-    df['Sixes'] = pd.to_numeric(df['6'], errors='coerce').fillna(0)
+    df['Runs'] = pd.to_numeric(df['R.1'], errors='coerce').fillna(0)  # Cumulative runs
+    df['Balls'] = pd.to_numeric(df['B'], errors='coerce').fillna(0)  # Cumulative balls
+    df['R'] = pd.to_numeric(df['R'], errors='coerce').fillna(0)  # Runs on THIS ball
     df['Bowling_Type'] = df['Technique'].fillna('Unknown')
     
     # Match situation metrics
@@ -45,9 +43,24 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
         # Sort by over to get chronological order
         group = group.sort_values('Over_Num')
         
-        # Entry point (first ball)
+        # Entry point (first ball faced by this batsman in this match)
         entry_row = group.iloc[0]
+        # Exit point (last ball faced by this batsman in this match)
         exit_row = group.iloc[-1]
+        
+        # The cumulative columns (R.1, B) show the batsman's stats UP TO that ball
+        # So the exit_row contains the final totals for this batsman in this match
+        player_runs = exit_row['Runs']
+        player_balls = exit_row['Balls']
+        
+        # Calculate dots, fours, sixes from the R column (runs on each ball)
+        player_dots = (group['R'] == 0).sum()  # Count balls where R = 0
+        player_fours = (group['R'] == 4).sum()  # Count balls where R = 4
+        player_sixes = (group['R'] == 6).sum()  # Count balls where R = 6
+        
+        # Skip invalid entries
+        if player_balls <= 0:
+            continue
         
         entry_exit_data.append({
             'Player': batsman,
@@ -55,14 +68,14 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
             'Match': match,
             'Year': year,
             'Innings': entry_row['Innings'],  # 1st or 2nd
-            'Chase_Target': entry_row['Chase_Target'],  # Total target (only for 1st innings/chasing)
+            'Chase_Target': entry_row['Chase_Target'],  # Total target (only for 2nd innings/chasing)
             'Entry_Over': entry_row['Over_Num'],
             'Exit_Over': exit_row['Over_Num'],
-            'Runs': exit_row['Runs'],  # Final cumulative runs
-            'BF': exit_row['Balls'],   # Final cumulative balls
-            'Dots': group['Dots'].sum(),
-            'Fours': group['Fours'].sum(),
-            'Sixes': group['Sixes'].sum(),
+            'Runs': player_runs,  # Player's total runs in this match
+            'BF': player_balls,   # Player's total balls in this match
+            'Dots': player_dots,  # Player's total dots in this match
+            'Fours': player_fours,  # Player's total fours in this match
+            'Sixes': player_sixes,  # Player's total sixes in this match
             # Match situation at entry
             'Entry_RR_Required': entry_row['Required_RR'],
             'Entry_Runs_Required': entry_row['Runs_Required'],

@@ -1,0 +1,477 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║           📊 IPL DATASET SCHEMA - GEMINI LEARNING REFERENCE                     ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+🎯 DATASET OVERVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+Total Records: 44,611
+Total Columns: 69
+Data Quality: 99.99% (only 5 missing values in RL column)
+
+WHAT THIS DATA REPRESENTS:
+  • Ball-by-ball cricket data from IPL matches
+  • Detailed bowler, batsman, and match statistics
+  • Technical metrics (speeds, spins, angles)
+  • Match context (teams, grounds, dates)
+  • Performance indicators (runs, wickets, economy)
+
+
+🏏 CORE PLAYER & TEAM INFORMATION
+════════════════════════════════════════════════════════════════════════════════
+
+Player
+  Type: String (object)
+  Sample: T Natarajan, PJ Cummins, MA Starc, Bhuvneshwar Kumar
+  Usage: Identifies individual cricketers
+  Count: 248 unique players
+
+Team
+  Type: String (object)
+  Values: LSG, DC, CSK, RCB, RR, PBKS, KKR, GT, MI, SRH
+  Abbreviations:
+    LSG = Lucknow Super Giants
+    DC = Delhi Capitals
+    CSK = Chennai Super Kings
+    RCB = Royal Challengers Bangalore
+    RR = Rajasthan Royals
+    PBKS = Punjab Kings
+    KKR = Kolkata Knight Riders
+    GT = Gujarat Titans
+    MI = Mumbai Indians
+    SRH = Sunrisers Hyderabad
+
+Batsman
+  Type: String (object)
+  Sample: Player names who are batting
+  Usage: Identifies who is batting
+
+Team.1
+  Type: String (object)
+  Note: Duplicate of Team column for batting team context
+
+
+🎯 BOWLING STATISTICS
+════════════════════════════════════════════════════════════════════════════════
+
+Overs (O)
+  Type: Float64
+  Range: 0.0 - 4.0
+  Format: Cricket overs notation (e.g., 2.3 = 2 overs 3 balls)
+  Usage: Bowling workload per spell
+
+Maidens (M)
+  Type: Integer
+  Range: 0+
+  Meaning: Number of maiden overs (no runs conceded)
+  Usage: Bowling economy indicator
+
+Runs Conceded (R)
+  Type: Integer
+  Range: 0+
+  Meaning: Total runs conceded while bowling
+  Usage: Performance metric
+
+Wickets (W)
+  Type: Integer
+  Range: 0+
+  Meaning: Number of batsmen dismissed
+  Usage: Bowling effectiveness
+
+Economy (Econ)
+  Type: String (object)
+  Format: "X.XX" (e.g., "6.5")
+  Calculation: Runs per over
+  Usage: CRITICAL for bowling analysis
+  Interpretation:
+    < 7.0 = Excellent
+    7.0-8.0 = Good
+    8.0-9.0 = Average
+    > 9.0 = Poor
+
+Dots (0)
+  Type: Integer
+  Meaning: Balls bowled where no runs were scored
+  Usage: Bowling control indicator
+
+Fours (4)
+  Type: Integer
+  Meaning: Balls hit for exactly 4 runs
+  Usage: Batting aggression metric
+
+Sixes (6)
+  Type: Integer
+  Meaning: Balls hit for exactly 6 runs
+  Usage: Aggression and power metric
+
+
+🏏 BATTING STATISTICS
+════════════════════════════════════════════════════════════════════════════════
+
+R.1 (Runs Scored by Batsman)
+  Type: Integer
+  Range: 0+
+  Meaning: Total runs scored by the batsman
+  Usage: Batting performance
+
+B (Balls Faced)
+  Type: Integer
+  Range: 0+
+  Meaning: Number of balls faced by batsman
+  Usage: Innings length/duration
+
+RR (Run Rate)
+  Type: String (object)
+  Format: "X.XX"
+  Calculation: Runs per ball × 100
+  Usage: Batting aggression level
+
+I# (Innings Number)
+  Type: Integer
+  Meaning: Which innings number in the match
+  Usage: Match context
+
+RL (Runs Loss on Wicket)
+  Type: String (object)
+  Missing: 5 values
+  Meaning: Runs scored by batsman when dismissed
+  Usage: Loss context
+
+
+⚡ BOWLING TECHNICAL METRICS
+════════════════════════════════════════════════════════════════════════════════
+
+Technique
+  Type: String (object)
+  Values:
+    left orthodox, left pace, right pace, off break, leg break, left unorthodox, -
+  Usage: Bowling style classification
+
+ApprchSpd (Approach Speed)
+  Type: String (object)
+  Format: Speed measurement
+  Usage: Run-up intensity analysis
+
+BallSpd (Ball Speed)
+  Type: String (object)
+  Format: Speed measurement (km/h or mph)
+  Usage: Bowling pace analysis
+  Interpretation:
+    > 150 km/h = Fast bowler
+    130-150 km/h = Medium-fast
+    < 130 km/h = Spin bowler
+
+BallSpin (Ball Spin Rate)
+  Type: String (object)
+  Format: RPM or measurement
+  Usage: Spin bowling analysis
+
+PreBncSpd (Pre-Bounce Speed)
+  Type: String (object)
+  Usage: Speed before ball bounces on pitch
+
+PostBncSpd (Post-Bounce Speed)
+  Type: String (object)
+  Usage: Speed after ball bounces
+
+PostBallSpin (Post-Bounce Spin)
+  Type: String (object)
+  Usage: Spin after bouncing
+
+Power
+  Type: String (object)
+  Usage: Power generation assessment
+
+MgnsFrc (Magnus Force)
+  Type: String (object)
+  Usage: Spin-induced movement
+
+Variation & Var Group
+  Type: String (object)
+  Usage: Bowling variation type classification
+
+Line
+  Type: String (object)
+  Values: Off stump, leg stump, middle, wide
+  Usage: Where ball is pitched relative to batsman
+
+Length
+  Type: String (object)
+  Values: Yorker, full, good length, short, bounce
+  Usage: Pitch length classification
+
+
+⚾ BATTING TECHNICAL METRICS
+════════════════════════════════════════════════════════════════════════════════
+
+Foot Move
+  Type: String (object)
+  Values: Forward, backward, shuffle, static
+  Usage: Batting technique analysis
+
+Shot Type
+  Type: String (object)
+  Values: Drive, pull, cut, defensive, leave, etc.
+  Usage: Batting shot classification
+
+Shot
+  Type: String (object)
+  Usage: Specific shot variation
+
+Connection
+  Type: String (object)
+  Values: Edge, middle, bottom, outside, solid
+  Usage: Bat-ball contact quality
+
+Quality
+  Type: String (object)
+  Values: Good, average, poor
+  Usage: Shot execution quality
+
+Quantity
+  Type: String (object)
+  Values: Aggressive, neutral, defensive
+  Usage: Intent level
+
+Hit in Air
+  Type: String (object)
+  Values: Yes, No
+  Usage: Risk assessment
+
+Zone
+  Type: String (object)
+  Usage: Field placement area
+
+
+🎮 FIELDING METRICS
+════════════════════════════════════════════════════════════════════════════════
+
+FAction (Fielding Action)
+  Type: String (object)
+  Usage: What the fielder was doing
+
+FPosition (Fielding Position)
+  Type: String (object)
+  Values: Slip, leg slip, point, short mid-wicket, mid-wicket, long-on, etc.
+  Usage: Field placement detail
+
+Fielder
+  Type: String (object)
+  Usage: Name of fielder involved in dismissal
+
+Score
+  Type: String (object)
+  Usage: Current match score state
+
+Wkt (Wicket)
+  Type: String (object)
+  Values: Bowled, Caught, LBW, Run Out, Stumped, etc.
+  Usage: Dismissal type classification
+
+
+⏱️ MATCH & CONTEXT METRICS
+════════════════════════════════════════════════════════════════════════════════
+
+Overs (Innings Progress)
+  Type: Float64
+  Format: Cricket overs notation (e.g., 10.4)
+  Usage: Match progress tracking
+
+Ball Age
+  Type: Integer
+  Meaning: How old the cricket ball is (deliveries)
+  Usage: Ball condition analysis
+
+RR.1 (Current Run Rate)
+  Type: String (object)
+  Usage: Real-time run rate during match
+
+Target
+  Type: String (object)
+  Usage: Target to chase in 2nd innings
+
+OvLim (Over Limit)
+  Type: Float64
+  Typical: 20.0 (for T20)
+  Usage: Match format indicator
+
+RReq (Runs Required)
+  Type: String (object)
+  Usage: Runs needed to win
+
+BRem (Balls Remaining)
+  Type: Integer
+  Usage: Balls left in innings
+
+RRreq (Run Rate Required)
+  Type: String (object)
+  Usage: Required run rate to achieve target
+
+Ball Time
+  Type: String (object)
+  Usage: Time-based ball tracking
+
+FromPav (From Pavilion)
+  Type: String (object)
+  Usage: Batsman entry/exit context
+
+
+📍 MATCH INFORMATION
+════════════════════════════════════════════════════════════════════════════════
+
+Ground Name
+  Type: String (object)
+  Usage: Cricket venue name
+
+Country
+  Type: String (object)
+  Usage: Match location country
+
+H/A (Home/Away)
+  Type: String (object)
+  Values: Home, Away
+  Usage: Home advantage indicator
+
+Continent
+  Type: String (object)
+  Usage: Geographic region
+
+Date↑
+  Type: String (object)
+  Format: Date in sortable format
+  Usage: Match date tracking
+
+Match↑
+  Type: String (object)
+  Usage: Match identifier
+
+Opposition
+  Type: String (object)
+  Usage: Opposing team
+
+Result
+  Type: String (object)
+  Values: Won, Lost, No Result, Tie
+  Usage: Match outcome
+
+Toss
+  Type: String (object)
+  Values: Bat, Bowl
+  Usage: Toss decision
+
+
+📊 EXTRAS METRICS
+════════════════════════════════════════════════════════════════════════════════
+
+Ext (Extras)
+  Type: Integer
+  Meaning: Total extra runs (not attributable to batsman)
+  Usage: Bowling control metric
+
+Bye
+  Type: Integer
+  Meaning: Runs scored without bat contact (legitimate)
+  Usage: Bowling accuracy
+
+LB (Leg Byes)
+  Type: Integer
+  Meaning: Runs from ball hitting batsman's body
+  Usage: Bowling analysis
+
+Wide
+  Type: Integer
+  Meaning: Balls bowled outside legal delivery area
+  Usage: Bowling control
+
+NB (No Ball)
+  Type: Integer
+  Meaning: Illegal deliveries (foot fault)
+  Usage: Bowling discipline
+
+
+🎯 ANALYSIS USE CASES
+════════════════════════════════════════════════════════════════════════════════
+
+BOWLER ANALYSIS:
+  → Query: "Who has best economy rate?"
+  → Use columns: O, M, R, W, Econ, Technique, Player, Team
+  → Filter by: minimum overs (e.g., O >= 1)
+  → Sort by: Econ ascending
+
+BATSMAN ANALYSIS:
+  → Query: "Who has best strike rate?"
+  → Use columns: R.1, B, RR (calculate manually: R.1/B*100)
+  → Filter by: minimum balls (e.g., B >= 20)
+  → Sort by: Strike rate descending
+
+TEAM ANALYSIS:
+  → Query: "Team performance comparison"
+  → Aggregate: Sum R.1, W, O by Team
+  → Calculate: Team economy, avg runs per match
+  → Compare: Across all metrics
+
+MATCH ANALYSIS:
+  → Query: "Who won?"
+  → Use: Match↑, Result, Team
+  → Context: Ground, Opponent, Date
+
+PLAYER COMPARISON:
+  → Query: "Compare two bowlers"
+  → Compare: Econ, W, RR, Technique
+  → Normalize: By overs played
+  → Consider: Opposition strength
+
+
+🔍 DATA QUALITY NOTES
+════════════════════════════════════════════════════════════════════════════════
+
+Completeness: 99.99%
+  • Only 5 missing values in RL column (out of 44,611)
+  • All critical columns have 100% data
+
+Data Types:
+  • String columns may contain "-" indicating missing categorical data
+  • Numeric columns are properly typed (int64, float64)
+  • String columns containing numbers (like Econ) should be converted for math
+
+Cricket Format:
+  • Data appears to be T20 format (OvLim = 20.0)
+  • Overs notation uses cricket convention (e.g., 2.3 = 2 overs, 3 balls)
+
+
+💡 KEY INSIGHTS FOR GEMINI
+════════════════════════════════════════════════════════════════════════════════
+
+1. METRIC RELATIONSHIPS
+   • Lower Economy = Better bowler
+   • Higher Strike Rate = More aggressive batsman
+   • More Wickets = More effective bowler
+   • Fewer Dots = Aggressive bowling
+
+2. CONTEXT MATTERS
+   • Ball age affects batting (old ball easier to bat)
+   • Ground matters (venue-specific conditions)
+   • Overs remaining affects RRreq
+   • Opposition strength matters
+
+3. COMMON QUERIES
+   → "Best X" → Sort by relevant column, check minimum threshold
+   → "Compare A vs B" → Filter both, compare key metrics
+   → "Team analysis" → Aggregate by team
+   → "Match prediction" → Use historical Head-to-Head
+
+4. ANALYSIS PATTERNS
+   Economy Rate = R / O (if O not zero)
+   Strike Rate = R.1 / B * 100 (if B not zero)
+   Batting Avg = R.1 / W (if dismissed)
+   Bowling Avg = R / W (if W > 0)
+
+5. FILTERING TIPS
+   • Use minimum overs/balls to avoid outliers
+   • Check match context (was it rain-affected?)
+   • Consider venue conditions
+   • Look at opposition quality
+
+═══════════════════════════════════════════════════════════════════════════════
+This reference should be loaded whenever analyzing IPL data with Gemini
+═══════════════════════════════════════════════════════════════════════════════
