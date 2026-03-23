@@ -43,3 +43,8 @@ api_usage_log.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Large source/intermediate data files (exceed GitHub 100MB limit)
+cricviz_all_pages_combined.csv
+multi_league_data.csv
+cricviz_all_pages.xlsx

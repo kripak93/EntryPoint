@@ -117,6 +117,9 @@ with tab1:
     with st.expander("🎯 Filters", expanded=True):
         fc1, fc2, fc3, fc4 = st.columns(4)
 
+        # Pre-filter data by competition to cascade into Players/Teams
+        _ga_comp_df = ball_position_df.copy() if not ball_position_df.empty else pd.DataFrame()
+
         with fc1:
             ga_competitions = st.multiselect(
                 "🏆 Competition",
@@ -124,9 +127,13 @@ with tab1:
                 default=sorted(ball_position_df['Competition'].dropna().unique()) if not ball_position_df.empty and 'Competition' in ball_position_df.columns else [],
                 key="ga_competitions"
             )
+            # Cascade: filter by selected competitions
+            if ga_competitions and not _ga_comp_df.empty and 'Competition' in _ga_comp_df.columns:
+                _ga_comp_df = _ga_comp_df[_ga_comp_df['Competition'].isin(ga_competitions)]
+
             ga_players = st.multiselect(
                 "👤 Batters",
-                sorted(ball_position_df['Batsman'].dropna().unique()) if not ball_position_df.empty else [],
+                sorted(_ga_comp_df['Batsman'].dropna().unique()) if not _ga_comp_df.empty else [],
                 default=[],
                 key="ga_players"
             )
@@ -140,13 +147,13 @@ with tab1:
         with fc2:
             ga_teams = st.multiselect(
                 "🏟️ Team",
-                sorted(ball_position_df['Team'].dropna().unique()) if not ball_position_df.empty and 'Team' in ball_position_df.columns else [],
+                sorted(_ga_comp_df['Team'].dropna().unique()) if not _ga_comp_df.empty and 'Team' in _ga_comp_df.columns else [],
                 default=[],
                 key="ga_teams"
             )
             ga_venues = st.multiselect(
                 "🏟️ Venue",
-                sorted(ball_position_df['Ground_Name'].dropna().unique()) if not ball_position_df.empty and 'Ground_Name' in ball_position_df.columns else [],
+                sorted(_ga_comp_df['Ground_Name'].dropna().unique()) if not _ga_comp_df.empty and 'Ground_Name' in _ga_comp_df.columns else [],
                 default=[],
                 key="ga_venues"
             )
@@ -380,18 +387,23 @@ with tab2:
         available_teams_bp = sorted(ball_position_df['Team'].dropna().unique()) if 'Team' in ball_position_df.columns else []
 
         with st.expander("🎯 Filters", expanded=False):
+            # Pre-filter by competition for cascading
+            _bp_comp_df = ball_position_df.copy()
+
             bpf1, bpf2, bpf3 = st.columns(3)
             with bpf1:
                 bp_competitions = st.multiselect("🏆 Competition",
                     sorted(ball_position_df['Competition'].dropna().unique()) if 'Competition' in ball_position_df.columns else [],
                     default=sorted(ball_position_df['Competition'].dropna().unique()) if 'Competition' in ball_position_df.columns else [],
                     key="bp_competitions")
-                bp_years = st.multiselect("📅 Years", available_years_bp, default=available_years_bp, key="bp_years")
-                bp_teams = st.multiselect("🏟️ Teams", available_teams_bp, default=available_teams_bp, key="bp_teams")
+                if bp_competitions and 'Competition' in _bp_comp_df.columns:
+                    _bp_comp_df = _bp_comp_df[_bp_comp_df['Competition'].isin(bp_competitions)]
+                bp_years = st.multiselect("📅 Years", sorted(_bp_comp_df['Year'].dropna().unique()) if 'Year' in _bp_comp_df.columns else [], default=sorted(_bp_comp_df['Year'].dropna().unique()) if 'Year' in _bp_comp_df.columns else [], key="bp_years")
+                bp_teams = st.multiselect("🏟️ Teams", sorted(_bp_comp_df['Team'].dropna().unique()) if 'Team' in _bp_comp_df.columns else [], default=[], key="bp_teams")
             with bpf2:
-                bp_players = st.multiselect("👤 Players", sorted(ball_position_df['Batsman'].dropna().unique()) if 'Batsman' in ball_position_df.columns else [], default=[], key="bp_players")
-                if 'Ground_Name' in ball_position_df.columns:
-                    bp_venues = st.multiselect("🏟️ Venues", sorted(ball_position_df['Ground_Name'].dropna().unique()), default=[], key="bp_venues")
+                bp_players = st.multiselect("👤 Players", sorted(_bp_comp_df['Batsman'].dropna().unique()) if 'Batsman' in _bp_comp_df.columns else [], default=[], key="bp_players")
+                if 'Ground_Name' in _bp_comp_df.columns:
+                    bp_venues = st.multiselect("🏟️ Venues", sorted(_bp_comp_df['Ground_Name'].dropna().unique()), default=[], key="bp_venues")
                 else:
                     bp_venues = []
             with bpf3:

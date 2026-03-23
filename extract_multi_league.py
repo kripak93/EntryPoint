@@ -1,6 +1,6 @@
 """
 Extract selected T20 leagues from cricviz_all_pages_combined.csv
-Leagues: IPL, SMAT, MLC, ILT20, CPL, T20 Blast, The Hundred, BBL, SA20
+Leagues: IPL, SMAT, MLC, ILT20, CPL, T20 Blast, The Hundred, BBL, SA20, T20I
 """
 import pandas as pd
 
@@ -71,21 +71,27 @@ print("Loading cricviz_all_pages_combined.csv...")
 df = pd.read_csv('cricviz_all_pages_combined.csv', low_memory=False)
 print(f"Total rows: {len(df):,}")
 
-# Filter to LAT20 only
-df = df[df['Match⬆'].str.startswith('LAT20', na=False)]
-print(f"LAT20 rows: {len(df):,}")
+# Filter to LAT20 (franchise leagues) and T20I (internationals)
+lat20 = df[df['Match⬆'].str.startswith('LAT20', na=False)].copy()
+t20i = df[df['Match⬆'].str.startswith('T20I', na=False)].copy()
+print(f"LAT20 rows: {len(lat20):,}")
+print(f"T20I rows: {len(t20i):,}")
 
-# Map competition from Opposition (batting team)
-df['Competition'] = df['Opposition'].map(team_to_comp)
+# Map competition for franchise leagues
+lat20['Competition'] = lat20['Opposition'].map(team_to_comp)
 
-# Keep only rows that matched a competition
-matched = df[df['Competition'].notna()].copy()
+# Tag all T20I rows directly
+t20i['Competition'] = 'T20I'
+
+# Keep matched franchise rows + all T20I rows
+matched_lat20 = lat20[lat20['Competition'].notna()].copy()
+matched = pd.concat([matched_lat20, t20i], ignore_index=True)
 print(f"\nMatched rows: {len(matched):,}")
 print(f"\nBy competition:")
 print(matched['Competition'].value_counts())
 
-print(f"\nUnmatched teams (not in any league):")
-unmatched_teams = df[df['Competition'].isna()]['Opposition'].value_counts()
+print(f"\nUnmatched LAT20 teams (not in any league):")
+unmatched_teams = lat20[lat20['Competition'].isna()]['Opposition'].value_counts()
 print(unmatched_teams.head(20))
 
 # Save
