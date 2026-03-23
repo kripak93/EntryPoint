@@ -17,11 +17,19 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
     df['Team'] = df['Opposition'].fillna('Unknown')  # Opposition = batting team
     df['Match'] = df['Match⬆'].fillna('Unknown')
     df['Over_Num'] = df['Overs'].astype(str).str.split('.').str[0].astype(float)
+    df['Ball_In_Over'] = df['Overs'].astype(str).str.split('.').str[1].apply(
+        lambda x: int(x) if str(x).isdigit() else 0
+    )
     df['Runs'] = pd.to_numeric(df['R.1'], errors='coerce').fillna(0)  # Cumulative runs
     df['Balls'] = pd.to_numeric(df['B'], errors='coerce').fillna(0)  # Cumulative balls
     df['R'] = pd.to_numeric(df['R'], errors='coerce').fillna(0)  # Runs on THIS ball
     df['Bowling_Type'] = df['Technique'].fillna('Unknown')
-    
+    df['Bowling_Variation'] = df['Variation'].fillna('Unknown')
+    df['Venue'] = df['Ground Name'].fillna('Unknown')
+    df['Bowler'] = df['Player'].fillna('Unknown')
+    if 'Competition' not in df.columns:
+        df['Competition'] = 'IPL'
+
     # Match situation metrics
     df['Runs_Required'] = pd.to_numeric(df['RReq'], errors='coerce')
     df['Required_RR'] = pd.to_numeric(df['RRreq'], errors='coerce')
@@ -29,10 +37,16 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
     df['Team_Score'] = df['Score'].astype(str)
     df['Innings'] = df['Bat']  # 1st or 2nd innings
     df['Chase_Target'] = pd.to_numeric(df['Target'], errors='coerce')  # Total target to chase
-    
+
     # Extract year from date
     df['Date'] = pd.to_datetime(df['Date⬆'], errors='coerce')
     df['Year'] = df['Date'].dt.year
+    df['Date_Str'] = df['Date'].dt.strftime('%Y-%m-%d')
+
+    # Batting partner: for each ball, find the other batsman at the crease in the same match/over
+    # We identify the non-striker by finding other batsmen who faced balls in the same match
+    # Simple approach: for each batsman-match, record all other batsmen who batted in same match
+    match_batsmen = df.groupby('Match')['Batsman'].apply(lambda x: list(x.unique())).to_dict()
     
     print("\nGrouping by batsman-match...")
     
@@ -57,25 +71,77 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
         player_dots = (group['R'] == 0).sum()  # Count balls where R = 0
         player_fours = (group['R'] == 4).sum()  # Count balls where R = 4
         player_sixes = (group['R'] == 6).sum()  # Count balls where R = 6
-        
+
+        # SR by each ball in over (ball 1-6)
+        sr_by_ball = {}
+        for ball_num in range(1, 7):
+            ball_group = group[group['Ball_In_Over'] == ball_num]
+            if len(ball_group) > 0:
+                sr_by_ball[f'SR_Ball_{ball_num}'] = round(ball_group['R'].sum() / len(ball_group) * 100, 1)
+            else:
+                sr_by_ball[f'SR_Ball_{ball_num}'] = None
+
+        # SR by each over
+        sr_by_over = {}
+        for over_num in range(1, 21):
+            over_group = group[group['Over_Num'] == over_num]
+            if len(over_group) > 0:
+                sr_by_over[f'SR_Over_{over_num}'] = round(over_group['R'].sum() / len(over_group) * 100, 1)
+            else:
+                sr_by_over[f'SR_Over_{over_num}'] = None
+
+        # Batting partners: other batsmen in same match (excluding self)
+        partners = [b for b in match_batsmen.get(match, []) if b != batsman and b != 'Unknown']
+        batting_partners = ', '.join(partners[:5]) if partners else 'None'
+
+        # Bowling specs faced
+        bowling_specs = group['Bowling_Variation'].dropna().unique()
+        bowling_specs_str = ', '.join([s for s in bowling_specs if s not in ['-', 'Unknown']])
+
+        # Dominant bowling type faced
+        bowling_types_faced = group['Bowling_Type'].value_counts()
+        dominant_bowling = bowling_types_faced.index[0] if len(bowling_types_faced) > 0 else 'Unknown'
+
+        # Over slab for entry
+        entry_over_int = int(entry_row['Over_Num'])
+        if entry_over_int <= 3:
+            over_slab = '1-3'
+        elif entry_over_int <= 6:
+            over_slab = '4-6'
+        elif entry_over_int <= 10:
+            over_slab = '7-10'
+        elif entry_over_int <= 14:
+            over_slab = '11-14'
+        elif entry_over_int <= 17:
+            over_slab = '15-17'
+        else:
+            over_slab = '18-20'
+
         # Skip invalid entries
         if player_balls <= 0:
             continue
-        
-        entry_exit_data.append({
+
+        row = {
             'Player': batsman,
             'Team': team,
             'Match': match,
             'Year': year,
-            'Innings': entry_row['Innings'],  # 1st or 2nd
-            'Chase_Target': entry_row['Chase_Target'],  # Total target (only for 2nd innings/chasing)
+            'Competition': group['Competition'].iloc[0],
+            'Date': entry_row['Date_Str'],
+            'Venue': entry_row['Venue'],
+            'Innings': entry_row['Innings'],
+            'Chase_Target': entry_row['Chase_Target'],
             'Entry_Over': entry_row['Over_Num'],
+            'Entry_Over_Slab': over_slab,
             'Exit_Over': exit_row['Over_Num'],
-            'Runs': player_runs,  # Player's total runs in this match
-            'BF': player_balls,   # Player's total balls in this match
-            'Dots': player_dots,  # Player's total dots in this match
-            'Fours': player_fours,  # Player's total fours in this match
-            'Sixes': player_sixes,  # Player's total sixes in this match
+            'Runs': player_runs,
+            'BF': player_balls,
+            'Dots': player_dots,
+            'Fours': player_fours,
+            'Sixes': player_sixes,
+            'Batting_Partners': batting_partners,
+            'Bowling_Specs': bowling_specs_str,
+            'Dominant_Bowling_Type': dominant_bowling,
             # Match situation at entry
             'Entry_RR_Required': entry_row['Required_RR'],
             'Entry_Runs_Required': entry_row['Runs_Required'],
@@ -84,15 +150,24 @@ def process_ballbyball_to_entry_points(csv_path='ipl_data_mens_only.csv'):
             'Exit_RR_Required': exit_row['Required_RR'],
             'Exit_Runs_Required': exit_row['Runs_Required'],
             'Exit_Balls_Remaining': exit_row['Balls_Remaining']
-        })
-    
+        }
+        row.update(sr_by_ball)
+        row.update(sr_by_over)
+        entry_exit_data.append(row)
+
     entry_points = pd.DataFrame(entry_exit_data)
     
     # Calculate metrics
     entry_points['Strike_Rate'] = (entry_points['Runs'] / entry_points['BF'] * 100).fillna(0)
     entry_points['Dot_Pct'] = (entry_points['Dots'] / entry_points['BF'] * 100).fillna(0)
     entry_points['Bnd_Pct'] = ((entry_points['Fours'] + entry_points['Sixes']) / entry_points['BF'] * 100).fillna(0)
-    
+
+    # New metrics
+    boundaries = entry_points['Fours'] + entry_points['Sixes']
+    entry_points['Balls_Per_Boundary'] = (entry_points['BF'] / boundaries.replace(0, np.nan)).round(1)
+    rotating = entry_points['BF'] - entry_points['Dots'] - boundaries
+    entry_points['Strike_Rotation_Pct'] = (rotating.clip(lower=0) / entry_points['BF'] * 100).round(1)
+
     # Calculate overs played and innings duration
     entry_points['Overs_Played'] = (entry_points['BF'] / 6).round(1)
     entry_points['Exit_Over'] = (entry_points['Exit_Over']).round(0).astype(int)
@@ -222,8 +297,8 @@ def get_bowling_type_stats(csv_path='ipl_data_mens_only.csv'):
     return bowling_stats
 
 if __name__ == "__main__":
-    # Process entry points
-    entry_df = process_ballbyball_to_entry_points()
+    # Process entry points from multi-league source
+    entry_df = process_ballbyball_to_entry_points(csv_path='multi_league_data.csv')
     
     # Save to CSV
     output_file = 'processed_entry_points_ballbyball.csv'

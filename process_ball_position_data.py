@@ -22,6 +22,8 @@ def process_ball_position_analysis(csv_path='ipl_data_mens_only.csv'):
     df['Batsman'] = df['Batsman'].fillna('Unknown')
     df['Team'] = df['Opposition'].fillna('Unknown')
     df['Match'] = df['Match⬆'].fillna('Unknown')
+    if 'Competition' not in df.columns:
+        df['Competition'] = 'IPL'
     
     # Extract over and ball number
     df['Over_Ball'] = df['Overs'].astype(str)
@@ -112,7 +114,8 @@ def process_ball_position_analysis(csv_path='ipl_data_mens_only.csv'):
     ball_cols = ['Batsman', 'Team', 'Match', 'Year', 'Innings', 'Over_Num', 'Ball_Num',
                  'Ball_Position', 'Entry_Over', 'Entry_Phase', 'Runs_This_Ball', 'Is_Dot', 
                  'Is_Boundary', 'Is_Four', 'Is_Six', 'RRreq', 'RRR_Range', 'Runs_Required', 
-                 'Balls_Remaining', 'Ground_Name', 'Date', 'Variation', 'Line', 'Length']
+                 'Balls_Remaining', 'Ground_Name', 'Date', 'Variation', 'Line', 'Length',
+                 'Competition']
     
     # Add ground name, date, and bowling details
     df['Ground_Name'] = df['Ground Name'].fillna('Unknown')
@@ -120,6 +123,7 @@ def process_ball_position_analysis(csv_path='ipl_data_mens_only.csv'):
     df['Variation'] = df['Variation'].fillna('no movement')
     df['Line'] = df['Line'].fillna('unknown')
     df['Length'] = df['Length'].fillna('unknown')
+    df['Technique'] = df['Technique'].fillna('unknown')
     
     # Create bowling type categories
     def categorize_bowling_type(variation):
@@ -152,7 +156,7 @@ def process_ball_position_analysis(csv_path='ipl_data_mens_only.csv'):
     df['Over_Slab'] = df['Over_Num'].apply(categorize_over_slab)
     
     # Add bowling type and over slab to saved columns
-    ball_cols.extend(['Bowling_Type', 'Over_Slab'])
+    ball_cols.extend(['Bowling_Type', 'Over_Slab', 'Technique'])
     
     ball_df = df[ball_cols].copy()
     ball_df.to_csv('ball_position_analysis.csv', index=False)
@@ -198,8 +202,8 @@ def analyze_player_by_ball_position(ball_df, player_name=None):
     return analysis
 
 if __name__ == "__main__":
-    # Process ball-by-ball data
-    ball_df = process_ball_position_analysis()
+    # Process ball-by-ball data from multi-league source
+    ball_df = process_ball_position_analysis(csv_path='multi_league_data.csv')
     
     # Show distribution
     print("\n" + "=" * 80)
